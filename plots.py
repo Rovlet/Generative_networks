@@ -13,18 +13,16 @@ class Plots:
     scatter_size: int = 18
     scatter_range = (-5, 5)
 
-    @classmethod
-    def plot_ae_outputs(cls, vae, test_dataloader, device):
-        plt.figure(figsize=cls.figsize)
+    def plot_ae_outputs(self, vae, test_dataloader, device):
+        plt.figure(figsize=self.figsize)
         images, _ = next(iter(test_dataloader))
-        reconstruced_images = cls.reconstruct_images(images, vae, device).cpu()
+        reconstruced_images = self.reconstruct_images(images, vae, device).cpu()
         plt.imshow(torchvision.utils.make_grid(reconstruced_images[1:50], 10, 5).permute(1, 2, 0))
         plt.title("VAE reconstructions")
         plt.axis('off')
-        plt.savefig(f'{cls.plots_dir}vae_reconstruction.png')
+        plt.savefig(f'{self.plots_dir}vae_reconstruction.png')
 
-    @classmethod
-    def plot_latent_params(cls, approach, test_batch_x, test_batch_y, device) -> None:
+    def plot_latent_params(self, approach, test_batch_x, test_batch_y, device) -> None:
         df = pd.DataFrame()
         df = approach.run_on_one_batch(df, test_batch_x, test_batch_y, device)
         df = df.set_index(['index'])
@@ -44,34 +42,32 @@ class Plots:
             color="class",
             hover_name="image_ind",
             color_discrete_sequence=px.colors.qualitative.Plotly,
-            width=cls.scatter_size,
-            height=cls.scatter_size,
+            width=self.scatter_size,
+            height=self.scatter_size,
             size_max=size_max,
-            range_x=cls.scatter_range,
-            range_y=cls.scatter_range)
+            range_x=self.scatter_range,
+            range_y=self.scatter_range)
 
-        scatter.write_html(f'{cls.plots_dir}latent_params.html')
+        scatter.write_html(f'{self.plots_dir}latent_params.html')
 
-    @classmethod
-    def plot_loss(cls, losses):
+    def plot_loss(self, losses):
         plt.plot(list(range(len(losses))), losses, label='train looses')
         plt.legend()
         plt.xlabel('epoch')
         plt.ylabel('loss')
-        plt.savefig(f'{cls.plots_dir}loss.png')
+        plt.savefig(f'{self.plots_dir}loss.png')
 
-    @classmethod
-    def plot_latent_space(cls, approach, device):
+    def plot_latent_space(self, approach, device):
         nd = torch.distributions.Normal(loc=torch.as_tensor([0.]),
                                         scale=torch.as_tensor([1.]))
 
         with torch.no_grad():
             # create a sample grid in 2d latent space
-            latent_interpolation = torch.linspace(0.001, 0.999, cls.num_interpolations)
+            latent_interpolation = torch.linspace(0.001, 0.999, self.num_interpolations)
             latent_grid = torch.stack(
                 (
-                    latent_interpolation.repeat(cls.num_interpolations, 1),
-                    latent_interpolation[:, None].repeat(1, cls.num_interpolations)
+                    latent_interpolation.repeat(self.num_interpolations, 1),
+                    latent_interpolation[:, None].repeat(1, self.num_interpolations)
                 ), dim=-1).view(-1, 2)
 
             # Without this, images would be distorted
@@ -82,16 +78,16 @@ class Plots:
             image_recon = approach.model.decoder(latent_grid)
             image_recon = image_recon.cpu()
 
-            plt.figure(figsize=cls.figsize)
-            plt.imshow(torchvision.utils.make_grid(image_recon.data[:cls.num_interpolations ** 2],
-                                                   cls.num_interpolations).permute(1, 2, 0))
+            plt.figure(figsize=self.figsize)
+            plt.imshow(torchvision.utils.make_grid(image_recon.data[:self.num_interpolations ** 2],
+                                                   self.num_interpolations).permute(1, 2, 0))
             plt.title("2D latent space")
             plt.axis('off')
-            plt.savefig(f'{cls.plots_dir}latent_space_2d.png')
+            plt.savefig(f'{self.plots_dir}latent_space_2d.png')
 
 
     @classmethod
-    def reconstruct_images(cls, images, model, device):
+    def reconstruct_images(self, images, model, device):
         model.eval()
         with torch.no_grad():
             images, _, _ = model(images.to(device))
