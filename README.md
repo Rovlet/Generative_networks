@@ -1,4 +1,4 @@
-# Vae task
+# Vae
 
 This version uses Python 3.8 with cuda 11.5
 
