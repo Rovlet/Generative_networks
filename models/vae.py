@@ -69,27 +69,30 @@ class Decoder(nn.Module):
         x = self.fc(x)
         x = x.view(x.size(0), self.hidden_channels * 2, 7, 7)
         x = self.activation(self.conv2(x))
-        x = torch.sigmoid(
-            self.conv1(x))
+        x = torch.sigmoid(self.conv1(x))
         return x
 
 
 class VariationalAutoencoder(nn.Module):
     def __init__(self, hidden_channels: int, latent_dim: int):
         super().__init__()
-        self.encoder = Encoder(hidden_channels=hidden_channels,
-                               latent_dim=latent_dim)
-        self.decoder = Decoder(hidden_channels=hidden_channels,
-                               latent_dim=latent_dim)
+        self.encoder = Encoder(hidden_channels=hidden_channels, latent_dim=latent_dim)
+        self.decoder = Decoder(hidden_channels=hidden_channels, latent_dim=latent_dim)
 
     def forward(self, x: torch.Tensor) -> (torch.Tensor, torch.Tensor, torch.Tensor):
+        """
+        Each data point in a VAE would get mapped to mean and log_variance vectors which would define the multivariate
+        normal distribution around that input data point.
+        A point is sampled from this distribution and is returned as the latent variable.
+        This latent variable is fed to the decoder to produce the output.
+        """
+
         latent_mu, latent_logvar = self.encoder(x)
         latent = self.latent_sample(latent_mu, latent_logvar)
         x_recon = self.decoder(latent)
         return x_recon, latent_mu, latent_logvar
 
     def latent_sample(self, mu: torch.Tensor, logvar: torch.Tensor) -> torch.Tensor:
-
         if self.training:
             std = (logvar * 0.5).exp()
             return torch.distributions.Normal(loc=mu, scale=std).rsample()

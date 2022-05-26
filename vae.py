@@ -5,11 +5,11 @@ from torch.nn import functional as F
 from torchvision.datasets import FashionMNIST
 import pandas as pd
 import torch
-from tqdm import tqdm
 from typing import Callable, Optional, List
 from config import InputParams
 from models.vae import VariationalAutoencoder
 import numpy as np
+from alive_progress import alive_bar
 
 
 class VAE:
@@ -33,56 +33,58 @@ class VAE:
         self.train_dataloader = DataLoader(train_dataset, batch_size=64, shuffle=True)
 
         test_dataset = FashionMNIST(root='./data/MNIST', download=True, train=False, transform=img_transform)
-        self.test_dataloader = DataLoader(test_dataset, batch_size=max(10000, self.config.batch_size), shuffle=True)
+        self.test_dataloader = DataLoader(test_dataset, batch_size=max(100, self.config.batch_size), shuffle=True)
 
     def train(self, device: torch.device) -> List[float]:
         self.model.train()
         train_loss_avg = []
-        tqdm_bar = tqdm(range(1, self.config.num_epochs + 1), desc="epoch [loss: ...]")
-        for i, epoch in enumerate(tqdm_bar):
-            train_loss_averager = self.make_averager()
+        for epoch in range(len(range(1, self.config.num_epochs + 1))):
+            print(f"Epoch {epoch}")
 
-            batch_bar = tqdm(self.train_dataloader, leave=False, desc='batch', total=len(self.train_dataloader))
-            for image_batch, _ in batch_bar:
-                image_batch = image_batch.to(device)
+            with alive_bar(len(self.train_dataloader), bar='squares', length=60) as batch_bar:
+                train_loss_averager = self.make_averager()
+                for image_batch, _ in self.train_dataloader:
+                    image_batch = image_batch.to(device)
 
-                # vae reconstruction
-                image_batch_recon, latent_mu, latent_logvar = self.model(image_batch)
+                    # vae reconstruction
+                    image_batch_recon, latent_mu, latent_logvar = self.model(image_batch)
 
-                # reconstruction error
-                loss = self.vae_loss(image_batch_recon, image_batch, latent_mu, latent_logvar)
+                    # reconstruction error
+                    loss = self.vae_loss(image_batch_recon, image_batch, latent_mu, latent_logvar)
 
-                # backpropagation
-                self.optimizer.zero_grad()
-                loss.backward()
+                    # backpropagation
+                    self.optimizer.zero_grad()
+                    loss.backward()
 
-                # one step of the optmizer
-                self.optimizer.step()
-
-                self.refresh_bar(batch_bar, f"Train batch [Loss: {train_loss_averager(loss.item()):.3f}]")
-
-            self.refresh_bar(tqdm_bar, f"Epoch {i} [Average loss: {train_loss_averager(None):.3f}]")
+                    # one step of the optmizer
+                    self.optimizer.step()
+                    batch_bar.text(f"Train batch [Loss: {train_loss_averager(loss.item()):.3f}]")
+                    batch_bar()
+            print(f"[Average loss: {train_loss_averager(None):.3f}]")
             train_loss_avg.append(train_loss_averager(None))
         return train_loss_avg
 
-    def evaluate(self,  device: torch.device) -> None:
+    def evaluate(self, device: torch.device) -> None:
         self.model.eval()
         test_loss_averager = self.make_averager()
         with torch.no_grad():
-            test_bar = tqdm(self.test_dataloader, total=len(self.test_dataloader), desc='batch [loss: ...]')
-            for image_batch, _ in test_bar:
-                image_batch = image_batch.to(device)
+            print("Testing...")
+            with alive_bar(len(self.test_dataloader), bar='bubbles', spinner='fish2', length=60) as batch_bar:
+                for image_batch, _ in self.test_dataloader:
+                    image_batch = image_batch.to(device)
 
-                # vae reconstruction
-                image_batch_recon, latent_mu, latent_logvar = self.model(image_batch)
+                    # vae reconstruction
+                    image_batch_recon, latent_mu, latent_logvar = self.model(image_batch)
 
-                # reconstruction error
-                loss = self.vae_loss(image_batch_recon, image_batch, latent_mu, latent_logvar)
+                    # reconstruction error
+                    loss = self.vae_loss(image_batch_recon, image_batch, latent_mu, latent_logvar)
 
-                self.refresh_bar(test_bar, f"test batch [loss: {test_loss_averager(loss.item()):.3f}]")
+                    batch_bar.text(f"test batch [loss: {test_loss_averager(loss.item()):.3f}]")
+                    batch_bar()
         print(f'Average test loss: {test_loss_averager(None)})')
 
-    def run_on_one_batch(self, df_log, x, y, device, epoch=0):
+    def run_on_one_batch(self, df_log: pd.DataFrame, x: torch.Tensor, y: torch.Tensor, device: torch.device,
+                         epoch: int = 0):
         with torch.no_grad():
             x = x.to(device)
             x, mus, stddevs = self.model(x)
@@ -98,8 +100,8 @@ class VAE:
 
     @staticmethod
     def make_averager() -> Callable[[Optional[float]], float]:
-        """ Returns a function that maintains a running average
-        :returns: running average function
+        """
+        Returns a function that maintains a running average
         """
         count = 0
         total = 0
@@ -135,8 +137,3 @@ class VAE:
 
         df_log = pd.concat([df_log, df])
         return df_log
-
-    @staticmethod
-    def refresh_bar(bar: tqdm, desc: str) -> None:
-        bar.set_description(desc)
-        bar.refresh()
