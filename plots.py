@@ -10,16 +10,16 @@ class Plots:
     plots_dir: str = 'plots/'
     figsize: Tuple[int] = (17, 17)
     num_interpolations: int = 10
+    scatter_size: int = 18
+    scatter_range = (-5, 5)
 
     @classmethod
     def plot_ae_outputs(cls, vae, test_dataloader, device):
         plt.figure(figsize=cls.figsize)
         images, _ = next(iter(test_dataloader))
         reconstruced_images = cls.reconstruct_images(images, vae, device).cpu()
-        # Reconstruct and visualise the images using the vae
-        plt.figure(figsize=cls.figsize)
         plt.imshow(torchvision.utils.make_grid(reconstruced_images[1:50], 10, 5).permute(1, 2, 0))
-        plt.title("Some VAE reconstructions")
+        plt.title("VAE reconstructions")
         plt.axis('off')
         plt.savefig(f'{cls.plots_dir}vae_reconstruction.png')
 
@@ -44,11 +44,11 @@ class Plots:
             color="class",
             hover_name="image_ind",
             color_discrete_sequence=px.colors.qualitative.Plotly,
-            width=800,
-            height=800,
+            width=cls.scatter_size,
+            height=cls.scatter_size,
             size_max=size_max,
-            range_x=[-5, 5],
-            range_y=[-5, 5])
+            range_x=cls.scatter_range,
+            range_y=cls.scatter_range)
 
         scatter.write_html(f'{cls.plots_dir}latent_params.html')
 
@@ -82,20 +82,12 @@ class Plots:
             image_recon = approach.model.decoder(latent_grid)
             image_recon = image_recon.cpu()
 
-            # Matplolib plot, much faster for static images
             plt.figure(figsize=cls.figsize)
             plt.imshow(torchvision.utils.make_grid(image_recon.data[:cls.num_interpolations ** 2],
                                                    cls.num_interpolations).permute(1, 2, 0))
             plt.title("2D latent space")
             plt.axis('off')
             plt.savefig(f'{cls.plots_dir}latent_space_2d.png')
-
-            # plot image with latent interpolation 0.001
-            plt.figure(figsize=cls.figsize)
-            plt.imshow(image_recon[0].permute(1, 2, 0), cmap='gray')
-            plt.title("2D latent space")
-            plt.axis('off')
-            plt.savefig(f'{cls.plots_dir}latent_space_2d_interpolation_001.png')
 
 
     @classmethod
