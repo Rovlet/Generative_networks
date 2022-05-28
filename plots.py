@@ -1,33 +1,36 @@
-import plotly.express as px
-import matplotlib.pyplot as plt
-import torchvision.utils
-import torch
 from typing import Tuple
+
+import matplotlib.pyplot as plt
 import pandas as pd
+import plotly.express as px
+import torch
+import torchvision.utils
 
 
 class Plots:
     plots_dir: str = 'plots/'
     figsize: Tuple[int] = (17, 17)
     num_interpolations: int = 10
-    scatter_size: int = 18
-    scatter_range = (-5, 5)
+    num_samples: int = 2920
+    scatter_size: int = 800
 
-    def plot_ae_outputs(self, vae, test_dataloader, device):
+    def plot_examples_of_generated_images_ae_outputs(self, vae, test_dataloader, device):
         plt.figure(figsize=self.figsize)
         images, _ = next(iter(test_dataloader))
         reconstruced_images = self.reconstruct_images(images, vae, device).cpu()
+
+        # Reconstruct and visualise the images using the vae
+        plt.figure(figsize=self.figsize)
         plt.imshow(torchvision.utils.make_grid(reconstruced_images[1:50], 10, 5).permute(1, 2, 0))
-        plt.title("VAE reconstructions")
+        plt.title("Some VAE reconstructions")
         plt.axis('off')
         plt.savefig(f'{self.plots_dir}vae_reconstruction.png')
 
-    def plot_latent_params(self, approach, test_batch_x, test_batch_y, device) -> None:
+    def plot_latent_params(self, approach, device, test_batch_x, test_batch_y) -> None:
         df = pd.DataFrame()
         df = approach.run_on_one_batch(df, test_batch_x, test_batch_y, device)
         df = df.set_index(['index'])
 
-        n_samples = 2920
         size_exactly_as_std = False
         if size_exactly_as_std:
             size_max = 200
@@ -35,7 +38,7 @@ class Plots:
             size_max = None
 
         scatter = px.scatter(
-            df.loc[df['image_ind'] < n_samples],
+            df.loc[df['image_ind'] < self.num_samples],
             x="mu_x", y="mu_y",
             animation_frame="epoch", animation_group="image_ind",
             size="std_x",
@@ -45,8 +48,8 @@ class Plots:
             width=self.scatter_size,
             height=self.scatter_size,
             size_max=size_max,
-            range_x=self.scatter_range,
-            range_y=self.scatter_range)
+            range_x=[-5, 5],
+            range_y=[-5, 5])
 
         scatter.write_html(f'{self.plots_dir}latent_params.html')
 
@@ -85,8 +88,13 @@ class Plots:
             plt.axis('off')
             plt.savefig(f'{self.plots_dir}latent_space_2d.png')
 
+            # plot image with latent interpolation 0.001
+            plt.figure(figsize=self.figsize)
+            plt.imshow(image_recon[0].permute(1, 2, 0), cmap='gray')
+            plt.title("2D latent space")
+            plt.axis('off')
+            plt.savefig(f'{self.plots_dir}latent_space_2d_interpolation_001.png')
 
-    @classmethod
     def reconstruct_images(self, images, model, device):
         model.eval()
         with torch.no_grad():

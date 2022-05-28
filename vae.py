@@ -1,15 +1,17 @@
-import torchvision.transforms as transforms
-from torch.utils.data import DataLoader
-from torch.optim import Adam
-from torch.nn import functional as F
-from torchvision.datasets import FashionMNIST
+from typing import Callable, List, Optional
+from rich import print
+import numpy as np
 import pandas as pd
 import torch
-from typing import Callable, Optional, List
+import torchvision.transforms as transforms
+from alive_progress import alive_bar
+from torch.nn import functional as F
+from torch.optim import Adam
+from torch.utils.data import DataLoader
+from torchvision.datasets import FashionMNIST
+
 from config import InputParams
 from models.vae import VariationalAutoencoder
-import numpy as np
-from alive_progress import alive_bar
 
 
 class VAE:
@@ -64,7 +66,7 @@ class VAE:
             train_loss_avg.append(train_loss_averager(None))
         return train_loss_avg
 
-    def evaluate(self, device: torch.device) -> None:
+    def evaluate_model_on_test_data(self, device: torch.device) -> None:
         self.model.eval()
         test_loss_averager = self.make_averager()
         with torch.no_grad():
@@ -107,12 +109,6 @@ class VAE:
         total = 0
 
         def averager(new_value: Optional[float]) -> float:
-            """ Running averager
-
-            :param new_value: number to add to the running average,
-                              if None returns the current average
-            :returns: the current average
-            """
             nonlocal count, total
             if new_value is None:
                 return total / count if count else float("nan")
